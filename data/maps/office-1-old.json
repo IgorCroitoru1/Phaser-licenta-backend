@@ -1,0 +1,50 @@
+{
+    "id": "office-1",
+    "name": "Main Dungeon",
+    "zones": [
+      {
+        "id": 1,
+        "name": "Room 101",
+        "bounds": { "x": 590, "y": 690, "width": 600, "height": 680 },
+        "type":"object",
+        "doors": [
+          {
+            "id": 29,
+            "position": { "x": 560, "y": 560 },
+            "size": { "width": 120, "height": 120 },
+            "zoneId": 1,
+            "type": "object"
+          },
+          {
+            "id": 28,
+            "position": { "x": 580, "y": 560 },
+            "size": { "width": 20, "height": 220 },
+            "zoneId": 1,
+            "type": "object"
+          }
+        ]
+      },
+      {
+        "id": 2,
+        "name": "Room 102",
+        "bounds": { "x": 680, "y": 1190, "width": 510, "height": 490 },
+        "type":"object",
+         "doors": [
+          {
+            "id": 24,
+            "position": { "x": 560, "y": 880 },
+            "size": { "width": 120, "height": 120 },
+            "zoneId": 2,
+            "type": "object"
+          },
+          {
+            "id": 25,
+            "position": { "x": 580, "y": 990 },
+            "size": { "width": 20, "height": 220 },
+            "zoneId": 2,
+            "type": "object"
+          }
+        ]
+      }
+    ]
+  }

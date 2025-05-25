@@ -1,0 +1,3 @@
+keys:
+  api_key: "api_key"  # Must match the FIRST part before colon in LIVEKIT_KEYS
+  api_secret: "secret_api_keydfgdflgkmdgoldmgdlkgmlfmgrltmgrlmglrktgrtgr"  # Must match AFTER colon+space
