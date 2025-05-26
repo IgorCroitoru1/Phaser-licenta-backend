@@ -24,7 +24,6 @@ import { Request } from 'express';
 @UseGuards(JwtAuthGuard)
 export class ChannelsController {
   constructor(private readonly channelsService: ChannelsService) {}
-
   @UseGuards(RolesGuard)
   @Roles(RolesEnum.ADMIN)
   @Post()
@@ -40,7 +39,6 @@ export class ChannelsController {
   async getAvailableMaps() {
     return {
       maps: this.channelsService.getAvailableMaps(),
-      message: 'Lista hărților disponibile'
     };
   }
 
@@ -55,13 +53,12 @@ export class ChannelsController {
   async update(@Param('id') id: string, @Body() updateChannelDto: UpdateChannelDto) {
     return this.channelsService.update(id, updateChannelDto);
   }
-
   @UseGuards(RolesGuard)
   @Roles(RolesEnum.ADMIN)
   @Delete(':id')
   async remove(@Param('id') id: string) {
     await this.channelsService.delete(id);
-    return { message: 'Channel deleted successfully' };
+    return { message: 'Canalul a fost șters cu succes' };
   }
 
   @UseGuards(RolesGuard)

@@ -7,14 +7,17 @@ import * as path from 'path';
 import { Channel, ChannelDocument } from './models/channel.model';
 import { CreateChannelDto } from './dtos/create-channel.dto';
 import { UpdateChannelDto } from './dtos/update-channel.dto';
+import { ChannelResponseDto } from './dtos/channel-response.dto';
+import { BaseTransformService } from '../shared/interfaces/transformable.interface';
 
 @Injectable()
-export class ChannelsService {
+export class ChannelsService extends BaseTransformService {
   private readonly mapsDirectory = path.join(process.cwd(), 'data', 'maps');
-
   constructor(
     @InjectModel(Channel.name) private channelModel: Model<ChannelDocument>,
-  ) {}
+  ) {
+    super();
+  }
 
   private validateMapExists(mapName: string): void {
     const fileName = mapName.endsWith('.json') ? mapName : `${mapName}.json`;
@@ -38,8 +41,7 @@ export class ChannelsService {
       return [];
     }
   }
-
-  async create(createChannelDto: CreateChannelDto, userId: string): Promise<ChannelDocument> {
+  async create(createChannelDto: CreateChannelDto, userId: string): Promise<ChannelResponseDto> {
     // Validate map exists
     this.validateMapExists(createChannelDto.mapName);
 
@@ -59,17 +61,21 @@ export class ChannelsService {
     };
 
     const createdChannel = new this.channelModel(channelData);
-    return createdChannel.save();
+    const savedChannel = await createdChannel.save();
+    
+    // Populate the createdBy field before transforming
+    await savedChannel.populate('createdBy', 'fullName email');
+    
+    return this.transformToDto(savedChannel, ChannelResponseDto);
   }
-
-  async findAll(): Promise<ChannelDocument[]> {
-    return this.channelModel
+  async findAll(): Promise<ChannelResponseDto[]> {
+    const channels = await this.channelModel
       .find({ isActive: true })
-      .populate('createdBy', 'fullName email')
       .exec();
+    
+    return this.transformToDtos(channels, ChannelResponseDto);
   }
-
-  async findById(id: string): Promise<ChannelDocument> {
+  async findById(id: string): Promise<ChannelResponseDto> {
     if (!Types.ObjectId.isValid(id)) {
       throw new NotFoundException('Invalid channel ID');
     }
@@ -83,10 +89,10 @@ export class ChannelsService {
       throw new NotFoundException('Channel not found');
     }
     
-    return channel;
+    return this.transformToDto(channel, ChannelResponseDto);
   }
-
-  async update(id: string, updateChannelDto: UpdateChannelDto): Promise<ChannelDocument> {    if (!Types.ObjectId.isValid(id)) {
+  async update(id: string, updateChannelDto: UpdateChannelDto): Promise<ChannelResponseDto> {
+    if (!Types.ObjectId.isValid(id)) {
       throw new NotFoundException('Invalid channel ID');
     }
 
@@ -116,7 +122,7 @@ export class ChannelsService {
       throw new NotFoundException('Channel not found');
     }
     
-    return updatedChannel;
+    return this.transformToDto(updatedChannel, ChannelResponseDto);
   }
 
   async delete(id: string): Promise<void> {
@@ -130,12 +136,36 @@ export class ChannelsService {
       throw new NotFoundException('Channel not found');
     }
   }
+  async deactivate(id: string): Promise<ChannelResponseDto> {
+    if (!Types.ObjectId.isValid(id)) {
+      throw new NotFoundException('Invalid channel ID');
+    }
 
-  async deactivate(id: string): Promise<ChannelDocument> {
-    return this.update(id, { isActive: false });
+    const deactivatedChannel = await this.channelModel
+      .findByIdAndUpdate(id, { isActive: false }, { new: true })
+      .populate('createdBy', 'fullName email')
+      .exec();
+    
+    if (!deactivatedChannel) {
+      throw new NotFoundException('Channel not found');
+    }
+    
+    return this.transformToDto(deactivatedChannel, ChannelResponseDto);
   }
 
-  async activate(id: string): Promise<ChannelDocument> {
-    return this.update(id, { isActive: true });
-  }
+  async activate(id: string): Promise<ChannelResponseDto> {
+    if (!Types.ObjectId.isValid(id)) {
+      throw new NotFoundException('Invalid channel ID');
+    }
+
+    const activatedChannel = await this.channelModel
+      .findByIdAndUpdate(id, { isActive: true }, { new: true })
+      .populate('createdBy', 'fullName email')
+      .exec();
+    
+    if (!activatedChannel) {
+      throw new NotFoundException('Channel not found');
+    }
+    
+    return this.transformToDto(activatedChannel, ChannelResponseDto);  }
 }

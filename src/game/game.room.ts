@@ -1,4 +1,4 @@
-import { Room, Client, AuthContext } from 'colyseus';
+import { Room, Client, matchMaker,AuthContext } from 'colyseus';
 import { Schema, type, MapSchema } from '@colyseus/schema';
 import { Door, Player, Zone } from './schemas/room.schema';
 import { JsonMapParser } from './map/map.parser';
@@ -16,28 +16,34 @@ import { PLAYER_VISION_MASK_SIZE } from '../../constants';
 import { DoorObject } from './map/types/map.types';
 import { readFileSync } from 'fs';
 import { join } from 'path';
-
+import { ChannelsService } from 'src/channel/channel.service';
 export type GameRoomOptions = {
-  mapId: string;
   token: string | null;
+  channelId: string;
 };
+
+export type RoomMetadata = {
+  mapId: string;
+  channelId: string;
+  maxClients: number;
+  channelName: string;
+}
 export class RoomState extends Schema {
   @type({ map: Player }) players = new MapSchema<Player>();
   @type({ map: Zone }) zones = new MapSchema<Zone>();
   @type({ map: Door }) doors = new MapSchema<Door>();
 }
 
-export class GameRoom extends Room<RoomState> {
+export class GameRoom extends Room<RoomState, RoomMetadata> {
   static userService: UserService;
   static jwtService: JwtService;
-  private lastNearbyUsers: string[] = [];
+  static channelsService: ChannelsService
   private tiledMapParser: JsonMapParser;
-  maxClients = 10;
+  // maxClients = 10;
   async onAuth(client: Client<UserDto, any>, options: GameRoomOptions) {
     //console.log(options)
     const token = options.token;
     if (!token) return false;
-
     try {
       const decoded = GameRoom.jwtService.verify(token) as UserDto; // 👈 Decode token
       const user = await GameRoom.userService.findById(decoded.id, false); // 👈 Load full user
@@ -57,14 +63,54 @@ export class GameRoom extends Room<RoomState> {
       console.error('Auth error:', err);
       //throw new Error("Token invallid");
     }
-  }
-  onCreate(options: GameRoomOptions) {
+  } 
+  async onCreate(options: GameRoomOptions) {
     this.state = new RoomState();
-    console.log(`Room ${this.roomId} created.`);
-
-    try {
+    console.log(`Room ${this.roomId} created with options:`, options);
     
-      this.tiledMapParser = new JsonMapParser(options.mapId);
+    try {
+      // Get channel data from database first
+      const channel = await GameRoom.channelsService.findById(options.channelId);
+      if (!channel) {
+        throw new Error(`Canalul ${options.channelId} nu a fost găsit în baza de date`);
+      }
+
+      if (!channel.isActive) {
+        throw new Error(`Canalul ${options.channelId} nu este activ`);
+      }      // Check if a room for this channel already exists using multiple methods
+      let existingChannelRooms: any[] = [];
+      
+      try {
+        // Method 1: Use matchMaker query
+        const allRooms = await matchMaker.query({ name: 'channel' });
+        existingChannelRooms = allRooms.filter((room) => 
+          (room.metadata as RoomMetadata)?.channelId === options.channelId
+        );
+        console.log(`Found ${existingChannelRooms.length} existing rooms for channel ${options.channelId}`);
+      } catch (err) {
+        console.warn('MatchMaker query failed:', err.message);
+      }
+
+      
+      if (existingChannelRooms.length > 0) {
+        console.log(`Room for channel ${options.channelId} already exists:`, existingChannelRooms[0].roomId);
+        throw new Error(`Un canal pentru ${channel.name} (${options.channelId}) există deja`);
+      }
+
+      // Set maxClients from channel data
+      this.maxClients = channel.maxUsers;
+      console.log(`Setting maxClients to ${this.maxClients} for channel ${channel.name}`);
+
+      
+
+      this.setMetadata({
+        channelId: options.channelId, 
+        mapId: channel.mapName, 
+        maxClients: this.maxClients,
+        channelName: channel.name
+      });
+    
+      this.tiledMapParser = new JsonMapParser(channel.mapName);
 
       // Create zones and doors
       this.initializeMap(this.tiledMapParser.parsedMap);

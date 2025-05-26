@@ -8,6 +8,7 @@ import { BadRequestException, ValidationError, ValidationPipe } from '@nestjs/co
 import * as cookieParser from 'cookie-parser';
 import { UserService } from './user/user.service';
 import { JwtService } from '@nestjs/jwt';
+import { ChannelsService } from './channel/channel.service';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
@@ -36,13 +37,14 @@ async function bootstrap() {
   const server = createServer();
   const gameServer = new Server({
     transport: new WebSocketTransport({ server }),
-  });
-  const userService = app.get(UserService);
+  });  const userService = app.get(UserService);
   const jwtService = app.get(JwtService);
+  const channelsService = app.get(ChannelsService);
 
   // 👇 Inject services into static properties
   GameRoom.userService = userService;
   GameRoom.jwtService = jwtService;
+  GameRoom.channelsService = channelsService;
   // gameServer.define('game_room', GameRoom);
   // gameServer.define('game_room2', GameRoom)
   gameServer.define('channel', GameRoom).filterBy(["channelId"])
