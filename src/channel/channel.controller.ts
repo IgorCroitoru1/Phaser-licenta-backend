@@ -8,12 +8,14 @@ import {
   Patch,
   Body, 
   Param, 
+  Query,
   UseGuards, 
   Req
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { ChannelsService } from './channel.service';
+import { GameService } from '../game/game.service';
 import { CreateChannelDto } from './dtos/create-channel.dto';
 import { UpdateChannelDto } from './dtos/update-channel.dto';
 import { RolesEnum } from 'src/user/constants/roles.constant';
@@ -23,7 +25,10 @@ import { Request } from 'express';
 @Controller('channels')
 @UseGuards(JwtAuthGuard)
 export class ChannelsController {
-  constructor(private readonly channelsService: ChannelsService) {}
+  constructor(
+    private readonly channelsService: ChannelsService,
+    private readonly gameService: GameService
+  ) {}
   @UseGuards(RolesGuard)
   @Roles(RolesEnum.ADMIN)
   @Post()
@@ -67,11 +72,58 @@ export class ChannelsController {
   async deactivate(@Param('id') id: string) {
     return this.channelsService.deactivate(id);
   }
-
   @UseGuards(RolesGuard)
   @Roles(RolesEnum.ADMIN)
   @Patch(':id/activate')
   async activate(@Param('id') id: string) {
     return this.channelsService.activate(id);
+  }
+
+  // Live data endpoints for real-time channel statistics
+  @Get('live/data')
+  async getChannelsLiveData() {
+    return this.gameService.getChannelsLiveData();
+  }
+
+  @Get(':id/live/data')
+  async getChannelLiveData(@Param('id') channelId: string) {
+    return this.gameService.getChannelLiveData(channelId);
+  }
+
+  // Long polling endpoint for real-time updates
+  @Get('live/poll')
+  async longPollChannelUpdates(
+    @Query('timestamp') timestamp?: string,
+    @Query('timeout') timeout?: string
+  ) {
+    const lastTimestamp = timestamp ? parseInt(timestamp, 10) : undefined;
+    const timeoutMs = timeout ? parseInt(timeout, 10) : 30000; // Default 30 seconds
+    
+    return this.gameService.waitForChannelChanges(lastTimestamp, timeoutMs);
+  }
+
+  // Enhanced channels list with live data
+  @Get('with-live-data')
+  async findAllWithLiveData() {
+    const [channels, liveData] = await Promise.all([
+      this.channelsService.findAll(),
+      this.gameService.getChannelsLiveData()
+    ]);
+
+    // Merge channel data with live statistics
+    const channelsWithLiveData = channels.map(channel => {
+      const channelLiveData = liveData.find(live => live.channelId === channel.id);
+      return {
+        ...channel,
+        liveData: channelLiveData || {
+          channelId: channel.id,
+          clientsCount: 0,
+          roomsCount: 0,
+          isActive: false
+        }
+      };
+    });
+
+    return channelsWithLiveData;
   }
 }
