@@ -1,6 +1,7 @@
 import { Injectable, CanActivate, ExecutionContext, UnauthorizedException, ForbiddenException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { Request } from 'express';
+import { UserDto } from 'src/user/dtos/user.dto';
 import { UserDocument } from 'src/user/user.model';
 import { UserService } from 'src/user/user.service';
 
@@ -8,7 +9,6 @@ import { UserService } from 'src/user/user.service';
 export class JwtAuthGuard implements CanActivate {
   constructor(
     private readonly jwtService: JwtService,
-    private readonly userService: UserService
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -27,15 +27,8 @@ export class JwtAuthGuard implements CanActivate {
       if (!decoded || !decoded.id) {
         throw new UnauthorizedException('Invalid token payload');
       }
-
-      // Fetch user from the database
-      const user: UserDocument | null = await this.userService.findById(decoded.id, false);
-      if (!user) {
-        throw new ForbiddenException('User not found');
-      }
-
       // Attach user to request
-      request.user = user;
+      request.user = decoded as UserDto;
 
       return true;
     } catch (error) {
