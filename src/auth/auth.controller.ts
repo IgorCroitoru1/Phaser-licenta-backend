@@ -67,8 +67,8 @@ export class AuthController {
   @Get('me')
   async getUser(@Req() req: Request) {
     
-    // const user = await this.userService.findById()
-    return new UserDto(req.user.id, req.user.email, req.user.fullName, req.user.roles);
+     const user = await this.userService.findById(req.user.id, false)
+    return new UserDto(user.id, user.email, user.fullName, user.roles);
   }
 
 }
