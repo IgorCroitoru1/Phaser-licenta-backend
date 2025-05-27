@@ -1,7 +1,10 @@
-import { Position } from "src/shared/event-data";
 import { Player } from "../schemas/room.schema";
 import { ChannelUserDto } from "src/user/dtos/channel-user.dto";
 
+export type Position = {
+    x: number;
+    y: number;
+  };
 export enum GameEvents  {
     PLAYER_MOVE = "move",
     PLAYER_JOINED = "player_joined",
