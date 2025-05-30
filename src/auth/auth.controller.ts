@@ -7,6 +7,7 @@ import { COOKIE_SETTINGS, REFRESH_TOKEN_PATH } from '../../constants';
 import { UserDto } from 'src/user/dtos/user.dto';
 import { UserService } from 'src/user/user.service';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { plainToInstance } from 'class-transformer';
 
 @Controller('auth')
 export class AuthController {
@@ -33,7 +34,7 @@ export class AuthController {
     const { access_token, refresh_token } = await this.authService.login(user);
 
     res.cookie('refreshToken', refresh_token, COOKIE_SETTINGS.REFRESH_TOKEN);
-    const userDto = new UserDto(user.id, user.email, user.fullName, user.roles);
+    const userDto = plainToInstance(UserDto, user, { excludeExtraneousValues: true });
     return {
       access_token,
       user: userDto
@@ -68,7 +69,7 @@ export class AuthController {
   async getUser(@Req() req: Request) {
     
      const user = await this.userService.findById(req.user.id, false)
-    return new UserDto(user.id, user.email, user.fullName, user.roles);
+    return plainToInstance(UserDto, user, {excludeExtraneousValues: true});
   }
 
 }

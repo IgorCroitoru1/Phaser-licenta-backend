@@ -18,6 +18,11 @@ export class User {
   @Prop({ unique: true, sparse: true }) // Only set if using Google OAuth
   googleId?: string;
 
+  @Prop({ required: false })
+  avatar?: string; // URL to user's avatar image
+
+ 
+
   @Prop({ type: [String], enum: Object.values(RolesEnum), default: [RolesEnum.USER] }) // Default role: 'user'
   roles: RolesEnumType[];
 }

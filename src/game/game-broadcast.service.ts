@@ -1,10 +1,20 @@
-import { Injectable, Logger, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  OnModuleInit,
+  OnModuleDestroy,
+} from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { GameService, ChannelLiveData } from './game.service';
-import { CHANNEL_EVENTS, AllChannelsUpdateEvent, ChannelUpdateEvent } from './events/channel.events';
+import {
+  CHANNEL_EVENTS,
+  AllChannelsUpdateEvent,
+  ChannelUpdateEvent,
+} from './events/channel.events';
 
 @Injectable()
-export class GameBroadcastService implements OnModuleInit, OnModuleDestroy {  private readonly logger = new Logger(GameBroadcastService.name);
+export class GameBroadcastService implements OnModuleInit, OnModuleDestroy {
+  private readonly logger = new Logger(GameBroadcastService.name);
   private broadcastInterval: NodeJS.Timeout;
   private lastChannelsData: ChannelLiveData[] = [];
   private hasInitialBroadcast = false; // Track if we've done the initial broadcast
@@ -42,11 +52,16 @@ export class GameBroadcastService implements OnModuleInit, OnModuleDestroy {  pr
   private async checkAndBroadcastChanges() {
     try {
       const currentChannelsData = await this.gameService.getChannelsLiveData();
-      
+
       // Check if there are any changes
       if (this.hasChannelsChanged(currentChannelsData)) {
-        this.logger.debug(`Channel data changed: ${this.lastChannelsData.length} -> ${currentChannelsData.length} channels`);
-        this.eventEmitter.emit(CHANNEL_EVENTS.ALL_CHANNELS_UPDATE, new AllChannelsUpdateEvent());
+        this.logger.debug(
+          `Channel data changed: ${this.lastChannelsData.length} -> ${currentChannelsData.length} channels`,
+        );
+        this.eventEmitter.emit(
+          CHANNEL_EVENTS.ALL_CHANNELS_UPDATE,
+          new AllChannelsUpdateEvent(),
+        );
         this.lastChannelsData = [...currentChannelsData];
       }
     } catch (error) {
@@ -80,7 +95,7 @@ export class GameBroadcastService implements OnModuleInit, OnModuleDestroy {  pr
     if (newData.length > 0) {
       for (const newChannel of newData) {
         const oldChannel = this.lastChannelsData.find(
-          old => old.channelId === newChannel.channelId
+          (old) => old.channelId === newChannel.channelId,
         );
 
         if (!oldChannel) {
@@ -105,10 +120,18 @@ export class GameBroadcastService implements OnModuleInit, OnModuleDestroy {  pr
    */
   async triggerChannelBroadcast(channelId: string): Promise<void> {
     try {
-      this.eventEmitter.emit(CHANNEL_EVENTS.CHANNEL_UPDATE, new ChannelUpdateEvent(channelId));
-      this.logger.debug(`Manually triggered broadcast for channel: ${channelId}`);
+      this.eventEmitter.emit(
+        CHANNEL_EVENTS.CHANNEL_UPDATE,
+        new ChannelUpdateEvent(channelId),
+      );
+      this.logger.debug(
+        `Manually triggered broadcast for channel: ${channelId}`,
+      );
     } catch (error) {
-      this.logger.error(`Failed to trigger broadcast for channel ${channelId}:`, error);
+      this.logger.error(
+        `Failed to trigger broadcast for channel ${channelId}:`,
+        error,
+      );
     }
   }
   /**
@@ -116,7 +139,10 @@ export class GameBroadcastService implements OnModuleInit, OnModuleDestroy {  pr
    */
   async triggerAllChannelsBroadcast(): Promise<void> {
     try {
-      this.eventEmitter.emit(CHANNEL_EVENTS.ALL_CHANNELS_UPDATE, new AllChannelsUpdateEvent());
+      this.eventEmitter.emit(
+        CHANNEL_EVENTS.ALL_CHANNELS_UPDATE,
+        new AllChannelsUpdateEvent(),
+      );
       this.logger.debug('Manually triggered broadcast for all channels');
     } catch (error) {
       this.logger.error('Failed to trigger broadcast for all channels:', error);
@@ -135,7 +161,10 @@ export class GameBroadcastService implements OnModuleInit, OnModuleDestroy {  pr
   /**
    * Get current broadcast statistics
    */
-  getBroadcastStats(): { hasInitialBroadcast: boolean; lastChannelsCount: number } {
+  getBroadcastStats(): {
+    hasInitialBroadcast: boolean;
+    lastChannelsCount: number;
+  } {
     return {
       hasInitialBroadcast: this.hasInitialBroadcast,
       lastChannelsCount: this.lastChannelsData.length,

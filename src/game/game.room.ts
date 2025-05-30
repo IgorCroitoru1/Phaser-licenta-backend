@@ -17,6 +17,7 @@ import { DoorObject } from './map/types/map.types';
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import { ChannelsService } from 'src/channel/channel.service';
+import { plainToClass, plainToInstance } from 'class-transformer';
 export type GameRoomOptions = {
   token: string | null;
   channelId: string;
@@ -51,12 +52,7 @@ export class GameRoom extends Room<RoomState, RoomMetadata, UserDto> {
       if (!user) return false;
       // client.userData = {
       //   id: "user123"}
-      client.userData = new UserDto(
-        user.id,
-        user.email,
-        user.fullName,
-        user.roles,
-      ); // 👈 Attach to client
+      client.userData =plainToInstance(UserDto, user, {excludeExtraneousValues: true});
       console.log('Client user data on auth:', client.userData);
       return true;
     } catch (err) {

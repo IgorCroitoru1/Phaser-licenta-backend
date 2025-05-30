@@ -9,6 +9,7 @@ import { Token, TokenDocument } from './models/token.model';
 import { RegisterUserDto } from './dto/register-user.dto';
 import { UserDto } from 'src/user/dtos/user.dto';
 import { ACCESS_TOKEN_EXPIRATION, REFRESH_TOKEN_EXPIRATION } from '../../constants';
+import { plainToInstance } from 'class-transformer';
 
 @Injectable()
 export class AuthService {
@@ -97,7 +98,7 @@ export class AuthService {
   }
 
   async login(user: UserDocument) {
-    const userData = new UserDto(user.id, user.email, user.fullName, user.roles);
+    const userData = plainToInstance(UserDto, user, { excludeExtraneousValues: true });
     const accessToken = this.generateAccessToken(userData);
     const refreshToken = this.generateRefreshToken(userData);
 
@@ -122,7 +123,7 @@ export class AuthService {
       throw new UnauthorizedException('User not found');
     }
 
-    const userData = new UserDto(user.id, user.email, user.fullName, user.roles);
+    const userData = plainToInstance(UserDto, user, { excludeExtraneousValues: true });
     const newAccessToken = this.generateAccessToken(userData);
     const newRefreshToken = this.generateRefreshToken(userData);
 

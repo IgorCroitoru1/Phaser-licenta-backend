@@ -8,15 +8,14 @@ import { Channel, ChannelDocument } from './models/channel.model';
 import { CreateChannelDto } from './dtos/create-channel.dto';
 import { UpdateChannelDto } from './dtos/update-channel.dto';
 import { ChannelResponseDto } from './dtos/channel-response.dto';
-import { BaseTransformService } from '../shared/interfaces/transformable.interface';
+import { plainToInstance } from 'class-transformer';
 
 @Injectable()
-export class ChannelsService extends BaseTransformService {
+export class ChannelsService {
   private readonly mapsDirectory = path.join(process.cwd(), 'data', 'maps');
   constructor(
     @InjectModel(Channel.name) private channelModel: Model<ChannelDocument>,
   ) {
-    super();
   }
 
   private validateMapExists(mapName: string): void {
@@ -63,17 +62,17 @@ export class ChannelsService extends BaseTransformService {
     const createdChannel = new this.channelModel(channelData);
     const savedChannel = await createdChannel.save();
     
-    // Populate the createdBy field before transforming
-    await savedChannel.populate('createdBy', 'fullName email');
     
-    return this.transformToDto(savedChannel, ChannelResponseDto);
+    return plainToInstance(ChannelResponseDto, savedChannel, {
+      excludeExtraneousValues: true,})
   }
   async findAll(): Promise<ChannelResponseDto[]> {
     const channels = await this.channelModel
       .find({ isActive: true })
       .exec();
     
-    return this.transformToDtos(channels, ChannelResponseDto);
+    return plainToInstance(ChannelResponseDto, channels, {
+      excludeExtraneousValues: true,})
   }
   async findById(id: string): Promise<ChannelResponseDto> {
     if (!Types.ObjectId.isValid(id)) {
@@ -89,7 +88,8 @@ export class ChannelsService extends BaseTransformService {
       throw new NotFoundException('Channel not found');
     }
     
-    return this.transformToDto(channel, ChannelResponseDto);
+    return plainToInstance(ChannelResponseDto, channel, {
+      excludeExtraneousValues: true,});
   }
   async update(id: string, updateChannelDto: UpdateChannelDto): Promise<ChannelResponseDto> {
     if (!Types.ObjectId.isValid(id)) {
@@ -122,7 +122,8 @@ export class ChannelsService extends BaseTransformService {
       throw new NotFoundException('Channel not found');
     }
     
-    return this.transformToDto(updatedChannel, ChannelResponseDto);
+    return plainToInstance(ChannelResponseDto, updatedChannel, {
+      excludeExtraneousValues: true,});
   }
 
   async delete(id: string): Promise<void> {
@@ -150,7 +151,8 @@ export class ChannelsService extends BaseTransformService {
       throw new NotFoundException('Channel not found');
     }
     
-    return this.transformToDto(deactivatedChannel, ChannelResponseDto);
+    return plainToInstance(ChannelResponseDto, deactivatedChannel, {
+      excludeExtraneousValues: true,});
   }
 
   async activate(id: string): Promise<ChannelResponseDto> {
@@ -167,5 +169,7 @@ export class ChannelsService extends BaseTransformService {
       throw new NotFoundException('Channel not found');
     }
     
-    return this.transformToDto(activatedChannel, ChannelResponseDto);  }
+    return plainToInstance(ChannelResponseDto, activatedChannel, {
+      excludeExtraneousValues: true,});
+    }
 }

@@ -1,14 +1,18 @@
-export class UserDto{
+import { Expose, Transform } from 'class-transformer';
+export class UserDto {
+    @Expose()
     id: string
+    
+    @Expose()
     email: string
+    
+    @Transform(({ obj }) => obj.fullName)
+    @Expose()
     name: string
-    // avatar: string
+    
+    @Expose()
+    avatar?: string
+    
+    @Expose()
     roles: string[]
-    constructor(id: string, email: string, fullName: string, roles: string[]){
-        this.id = id
-        this.email = email
-        this.name = fullName
-        this.roles = roles
-
-    }
 }
