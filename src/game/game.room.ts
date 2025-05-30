@@ -34,7 +34,7 @@ export class RoomState extends Schema {
   @type({ map: Door }) doors = new MapSchema<Door>();
 }
 
-export class GameRoom extends Room<RoomState, RoomMetadata> {
+export class GameRoom extends Room<RoomState, RoomMetadata, UserDto> {
   static userService: UserService;
   static jwtService: JwtService;
   static channelsService: ChannelsService
@@ -115,20 +115,6 @@ export class GameRoom extends Room<RoomState, RoomMetadata> {
       // Create zones and doors
       this.initializeMap(this.tiledMapParser.parsedMap);
 
-      this.onMessage('get_data', (client, data) => {
-        const allPlayers = Array.from(this.state.players.values()).map(
-          (player) => ({
-            id: player.id,
-            x: player.x,
-            y: player.y,
-            currentZoneId: player.currentZoneId,
-            nearbyUsers: player.nearbyUsers?.toArray?.() ?? [],
-          }),
-        );
-        console.log('All players data:', allPlayers);
-        // Send response back to the requesting client
-        client.send('players_data', allPlayers);
-      });
       this.onMessage(
         GameEvents.PLAYER_MOVE,
         (

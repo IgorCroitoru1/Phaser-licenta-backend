@@ -8,25 +8,17 @@ import { UserModule } from 'src/user/user.module';
 import { MongooseModule } from '@nestjs/mongoose';
 import { Token, TokenSchema } from './models/token.model';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { JwtAuthGuard } from './guards/jwt-auth.guard';
+
 @Module({
   imports: [
     MongooseModule.forFeature([{ name: Token.name, schema: TokenSchema }]),
     UserModule,
     PassportModule,
-    JwtModule.registerAsync({
-      imports: [ConfigModule],
-
-      useFactory: async (configService: ConfigService) => ({
-        secret: configService.get<string>('JWT_SECRET'),
-        signOptions: {
-          //expiresIn: configService.get<string>('JWT_EXPIRES_IN'),
-        },
-      }),
-      inject: [ConfigService],
-    }),
+    // JWT is now configured globally in AppModule, so we don't need it here
   ],
   controllers: [AuthController],
-  providers: [AuthService],
-  exports: [JwtModule, AuthService],
+  providers: [AuthService, JwtAuthGuard],
+  exports: [AuthService, JwtAuthGuard], // Export JwtAuthGuard for use in other modules
 })
 export class AuthModule {}

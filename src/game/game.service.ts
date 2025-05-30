@@ -72,7 +72,6 @@ export class GameService {
 
   async getAllActiveRooms(): Promise<RoomStats> {
     try {
-      console.log('Fetching all active rooms...');
 
       // Try multiple approaches to get rooms
       let rooms: IRoomCache[] = [];
@@ -90,7 +89,6 @@ export class GameService {
           // Method 2: Query all rooms
           const allRooms = await matchMaker.query({});
           rooms = allRooms.filter(room => room.name === 'channel');
-          console.log('Method 2 - Filtered channel rooms:', rooms.length);
         } catch (err) {
           console.log('Method 2 failed:', err.message);
         }
