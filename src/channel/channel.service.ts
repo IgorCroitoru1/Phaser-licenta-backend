@@ -81,7 +81,6 @@ export class ChannelsService {
 
     const channel = await this.channelModel
       .findById(id)
-      .populate('createdBy', 'fullName email')
       .exec();
     
     if (!channel) {
@@ -115,7 +114,6 @@ export class ChannelsService {
 
     const updatedChannel = await this.channelModel
       .findByIdAndUpdate(id, updateChannelDto, { new: true })
-      .populate('createdBy', 'fullName email')
       .exec();
     
     if (!updatedChannel) {
