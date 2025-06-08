@@ -275,4 +275,42 @@ export class ChannelRoomService {
     
     return cleanedCount;
   }
+
+  /**
+   * Get channels live data in the same format as GameService
+   */
+  getChannelsLiveData(): Array<{
+    channelId: string;
+    clientsCount: number;
+    isActive: boolean;
+  }> {
+    const channelsData = [];
+    
+    for (const [channelId, room] of this.rooms) {
+      channelsData.push({
+        channelId,
+        clientsCount: room.users.size,
+        isActive: room.users.size > 0,
+      });
+    }
+    
+    return channelsData;
+  }
+
+  /**
+   * Get channel live data for a specific channel in the same format as GameService
+   */
+  getChannelLiveData(channelId: string): {
+    channelId: string;
+    clientsCount: number;
+    isActive: boolean;
+  } {
+    const room = this.rooms.get(channelId);
+    
+    return {
+      channelId,
+      clientsCount: room?.users.size || 0,
+      isActive: room ? room.users.size > 0 : false,
+    };
+  }
 }

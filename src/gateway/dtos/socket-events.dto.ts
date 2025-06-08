@@ -5,7 +5,7 @@ import { ChannelUserDto } from 'src/user/dtos/channel-user.dto';
 export interface ChannelLiveData {
   channelId: string;
   clientsCount: number;
-  roomsCount: number;
+  // roomsCount: number;
   isActive: boolean;
   metadata?: any;
 }

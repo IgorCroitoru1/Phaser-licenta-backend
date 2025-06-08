@@ -30,7 +30,6 @@ export interface ClientInfo {
 export interface ChannelLiveData {
   channelId: string;
   clientsCount: number;
-  roomsCount: number;
   isActive: boolean;
 }
 
@@ -260,14 +259,12 @@ export class GameService {
           channelsMap.set(channelId, {
             channelId,
             clientsCount: 0,
-            roomsCount: 0,
             isActive: false
           });
         }
 
         const channelData = channelsMap.get(channelId)!;
         channelData.clientsCount += room.clientsCount;
-        channelData.roomsCount += 1;
         channelData.isActive = channelData.clientsCount > 0 || channelData.isActive;
       });
 
@@ -284,7 +281,6 @@ export class GameService {
       return allChannelsData.find(channel => channel.channelId === channelId) || {
         channelId,
         clientsCount: 0,
-        roomsCount: 0,
         isActive: false
       };
     } catch (err) {

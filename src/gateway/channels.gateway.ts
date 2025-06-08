@@ -66,7 +66,7 @@ export class ChannelsGateway
   constructor(
     private readonly jwtService: JwtService,
     private readonly userService: UserService,
-    private readonly gameService: GameService,
+    // private readonly gameService: GameService,
     private readonly channelRoomService: ChannelRoomService,
     private readonly livekitService: LivekitService,
   ) {}
@@ -105,8 +105,8 @@ export class ChannelsGateway
       );
 
       // Send initial channel data
-      const channelsData = await this.gameService.getChannelsLiveData();
-      client.emit(SOCKET_EVENTS.CHANNELS_INITIAL, channelsData);
+      const channelsData: ChannelLiveData[] =  this.channelRoomService.getChannelsLiveData();
+      client.emit(SOCKET_EVENTS.CHANNELS_UPDATE, channelsData);
     } catch (error) {
       this.logger.warn(`Connection rejected: Invalid token - ${error.message}`);
       client.disconnect();
@@ -173,13 +173,13 @@ export class ChannelsGateway
       }
       const {  channelId } = payload;
 
-      // Validate that channel exists
-      const channelData = await this.gameService.getChannelLiveData(channelId);
-      if (!channelData) {
-        response.error = `Channel ${channelId} does not exist`;
-        response.success = false;
-        return response 
-      }
+      // // Validate that channel exists
+      // const channelData = this.getRoomInfo(channelId);
+      // if (!channelData) {
+      //   response.error = `Channel ${channelId} does not exist`;
+      //   response.success = false;
+      //   return response 
+      // }
 
       // Check if user is already in this room
       if (this.channelRoomService.isUserInRoom(channelId, client.user.id)) {
@@ -401,93 +401,30 @@ export class ChannelsGateway
     }
   } // Event listeners for channel updates
 
-  @OnEvent(CHANNEL_EVENTS.CHANNEL_UPDATE)
-  async handleChannelUpdate(event: ChannelUpdateEvent): Promise<void> {
-    await this.broadcastChannelUpdate(event.channelId);
-  }
-
-  @OnEvent(CHANNEL_EVENTS.ALL_CHANNELS_UPDATE)
-  async handleAllChannelsUpdate(event: AllChannelsUpdateEvent): Promise<void> {
-    await this.broadcastAllChannelsUpdate();
-  }
-
-  // Broadcast methods for the application to use
-
+ 
   /**
    * Broadcast updated data for a specific channel
    */
   async broadcastChannelUpdate(channelId: string): Promise<void> {
-    try {
-      const channelData = await this.gameService.getChannelLiveData(channelId);
-      if (channelData) {
-        // Add room statistics to channel data
-        const roomStats = this.channelRoomService.getRoomStats(channelId);
-        const enhancedChannelData = {
-          ...channelData,
-          clientsCount: roomStats.clientsCount,
-          isActive: roomStats.isActive,
-        };
-
-        this.server.emit(SOCKET_EVENTS.CHANNEL_UPDATE, {
-          channelId,
-          data: enhancedChannelData,
-        });
-        this.logger.debug(`Broadcasted update for channel: ${channelId}`);
-      }
-    } catch (error) {
-      this.logger.error(
-        `Failed to broadcast channel update for ${channelId}:`,
-        error,
-      );
-    }
+    const usersData: ChannelLiveData = this.channelRoomService.getChannelLiveData(channelId);
+    this.server.emit(
+      SOCKET_EVENTS.CHANNEL_UPDATE, usersData)
   }
 
   /**
    * Broadcast updated data for all channels
    */
   async broadcastAllChannelsUpdate(): Promise<void> {
-    try {
-      const channelsData = await this.gameService.getChannelsLiveData();
-
-      // Enhance with room statistics
-      const enhancedChannelsData = channelsData.map((channel) => {
-        const roomStats = this.channelRoomService.getRoomStats(
-          channel.channelId,
-        );
-        return {
-          ...channel,
-          clientsCount: roomStats.clientsCount,
-          isActive: roomStats.isActive,
-        };
-      });
-
-      this.server.emit(SOCKET_EVENTS.CHANNELS_UPDATE, enhancedChannelsData);
-      // this.logger.debug('Broadcasted update for all channels');
-    } catch (error) {
-      this.logger.error('Failed to broadcast all channels update:', error);
-    }
+    const usersData: ChannelLiveData[] = this.channelRoomService.getChannelsLiveData();
+    this.server.emit(
+      SOCKET_EVENTS.CHANNELS_UPDATE, usersData)
   }
 
   /**
    * Broadcast user count for all channels (simplified version)
    */
   async broadcastUserCounts(): Promise<void> {
-    try {
-      const channelsData = await this.gameService.getChannelsLiveData();
-      const userCounts: { [channelId: string]: number } = {};
-
-      channelsData.forEach((channel) => {
-        const roomStats = this.channelRoomService.getRoomStats(
-          channel.channelId,
-        );
-        userCounts[channel.channelId] = roomStats.clientsCount;
-      });
-
-      this.server.emit(SOCKET_EVENTS.CHANNELS_USER_COUNTS, userCounts);
-      this.logger.debug('Broadcasted user counts for all channels');
-    } catch (error) {
-      this.logger.error('Failed to broadcast user counts:', error);
-    }
+    
   }
 
   // Additional utility methods

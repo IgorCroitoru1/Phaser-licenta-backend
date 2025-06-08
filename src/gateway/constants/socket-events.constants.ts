@@ -1,7 +1,6 @@
 // WebSocket event constants for the channels gateway
 export const SOCKET_EVENTS = {
   // Global channel events
-  CHANNELS_INITIAL: 'channels:initial',
   CHANNELS_UPDATE: 'channels:update', 
   CHANNEL_UPDATE: 'channel:update',
   CHANNELS_USER_COUNTS: 'channels:userCounts',
