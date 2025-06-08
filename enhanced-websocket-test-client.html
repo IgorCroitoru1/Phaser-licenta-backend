@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enhanced WebSocket Channel Test Client</title>
+    <script src="https://cdn.socket.io/4.7.4/socket.io.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        .section {
+            border: 1px solid #ccc;
+            padding: 15px;
+            border-radius: 5px;
+        }
+        .controls {
+            grid-column: span 2;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            margin: 5px;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        input, textarea {
+            width: 100%;
+            padding: 5px;
+            margin: 5px 0;
+            border: 1px solid #ccc;
+            border-radius: 3px;
+        }
+        .log {
+            height: 300px;
+            overflow-y: auto;
+            background: #f8f9fa;
+            padding: 10px;
+            border: 1px solid #ddd;
+            white-space: pre-wrap;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 3px;
+        }
+        .status.connected {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .status.disconnected {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .room-info {
+            background: #e7f3ff;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 3px;
+            border: 1px solid #b3d9ff;
+        }
+        .user-list {
+            background: #fff3cd;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 3px;
+            border: 1px solid #ffeaa7;
+        }
+    </style>
+</head>
+<body>
+    <h1>Enhanced WebSocket Channel Test Client</h1>
+    
+    <div class="container">
+        <div class="section controls">
+            <h3>Connection Controls</h3>
+            <div>
+                <label>JWT Token:</label>
+                <input type="text" id="tokenInput" placeholder="Enter your JWT token here">
+            </div>
+            <div>
+                <button id="connectBtn" onclick="connect()">Connect</button>
+                <button id="disconnectBtn" onclick="disconnect()" disabled>Disconnect</button>
+            </div>
+            <div id="status" class="status disconnected">Disconnected</div>
+        </div>
+
+        <div class="section">
+            <h3>Channel Management</h3>
+            <div>
+                <label>Channel ID:</label>
+                <input type="text" id="channelInput" placeholder="e.g., office-1" value="office-1">
+            </div>
+            <div>
+                <button id="joinBtn" onclick="joinChannel()" disabled>Join Channel</button>
+                <button id="leaveBtn" onclick="leaveChannel()" disabled>Leave Channel</button>
+            </div>
+            <div id="roomInfo" class="room-info" style="display: none;">
+                <h4>Current Room: <span id="currentRoom">None</span></h4>
+                <div id="userList" class="user-list">Users: <span id="roomUsers">None</span></div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h3>Messaging</h3>
+            <div>
+                <label>Message:</label>
+                <textarea id="messageInput" placeholder="Type your message here..." rows="3"></textarea>
+            </div>
+            <div>
+                <label>Message Type:</label>
+                <select id="messageType">
+                    <option value="chat">Chat</option>
+                    <option value="system">System</option>
+                    <option value="announcement">Announcement</option>
+                </select>
+            </div>
+            <div>
+                <button id="sendBtn" onclick="sendMessage()" disabled>Send Message</button>
+                <button onclick="requestLiveKitToken()" disabled id="livekitBtn">Request LiveKit Token</button>
+            </div>
+        </div>
+
+        <div class="section">
+            <h3>Channel Data</h3>
+            <div id="channelsData" class="log">No channel data received yet...</div>
+        </div>
+
+        <div class="section">
+            <h3>Messages Log</h3>
+            <div id="messagesLog" class="log">No messages yet...</div>
+        </div>
+
+        <div class="section">
+            <h3>Events Log</h3>
+            <div id="eventsLog" class="log">No events yet...</div>
+        </div>
+    </div>
+
+    <script>
+        // Socket event constants (same as backend)
+        const SOCKET_EVENTS = {
+            CHANNELS_INITIAL: 'channels:initial',
+            CHANNELS_UPDATE: 'channels:update', 
+            CHANNEL_UPDATE: 'channel:update',
+            CHANNELS_USER_COUNTS: 'channels:userCounts',
+            JOIN_CHANNEL: 'join-channel',
+            LEAVE_CHANNEL: 'leave-channel',
+            CHANNEL_JOINED: 'channel-joined',
+            CHANNEL_JOIN_ERROR: 'channel-join-error',
+            USER_JOINED: 'user-joined',
+            USER_LEFT: 'user-left',
+            CHANNEL_MESSAGE: 'channel-message',
+            REQUEST_LIVEKIT_TOKEN: 'request:livekit-token',
+            LIVEKIT_TOKEN: 'livekit:token',
+            CHANNEL_DATA: 'channel:data',
+        };
+
+        let socket = null;
+        let currentChannel = null;
+        let roomUsers = [];
+
+        function log(message, logElement = 'eventsLog') {
+            const timestamp = new Date().toLocaleTimeString();
+            const logDiv = document.getElementById(logElement);
+            logDiv.textContent += `[${timestamp}] ${message}\n`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+
+        function updateStatus(connected) {
+            const statusDiv = document.getElementById('status');
+            const connectBtn = document.getElementById('connectBtn');
+            const disconnectBtn = document.getElementById('disconnectBtn');
+            const joinBtn = document.getElementById('joinBtn');
+            const leaveBtn = document.getElementById('leaveBtn');
+            const sendBtn = document.getElementById('sendBtn');
+            const livekitBtn = document.getElementById('livekitBtn');
+
+            if (connected) {
+                statusDiv.textContent = 'Connected';
+                statusDiv.className = 'status connected';
+                connectBtn.disabled = true;
+                disconnectBtn.disabled = false;
+                joinBtn.disabled = false;
+                leaveBtn.disabled = false;
+                sendBtn.disabled = false;
+                livekitBtn.disabled = false;
+            } else {
+                statusDiv.textContent = 'Disconnected';
+                statusDiv.className = 'status disconnected';
+                connectBtn.disabled = false;
+                disconnectBtn.disabled = true;
+                joinBtn.disabled = true;
+                leaveBtn.disabled = true;
+                sendBtn.disabled = true;
+                livekitBtn.disabled = true;
+                currentChannel = null;
+                updateRoomInfo();
+            }
+        }
+
+        function updateRoomInfo() {
+            const roomInfoDiv = document.getElementById('roomInfo');
+            const currentRoomSpan = document.getElementById('currentRoom');
+            const roomUsersSpan = document.getElementById('roomUsers');
+
+            if (currentChannel) {
+                roomInfoDiv.style.display = 'block';
+                currentRoomSpan.textContent = currentChannel;
+                roomUsersSpan.textContent = roomUsers.map(user => user.name || user.email).join(', ');
+            } else {
+                roomInfoDiv.style.display = 'none';
+                currentRoomSpan.textContent = 'None';
+                roomUsersSpan.textContent = 'None';
+            }
+        }
+
+        function connect() {
+            const token = document.getElementById('tokenInput').value;
+            if (!token) {
+                alert('Please enter a JWT token');
+                return;
+            }
+
+            socket = io('http://localhost:3000/channels', {
+                auth: {
+                    token: token
+                }
+            });
+
+            // Connection events
+            socket.on('connect', () => {
+                log('Connected to server');
+                updateStatus(true);
+            });
+
+            socket.on('disconnect', (reason) => {
+                log(`Disconnected: ${reason}`);
+                updateStatus(false);
+            });
+
+            socket.on('connect_error', (error) => {
+                log(`Connection error: ${error.message}`);
+                updateStatus(false);
+            });
+
+            // Channel data events
+            socket.on(SOCKET_EVENTS.CHANNELS_INITIAL, (data) => {
+                log('Received initial channels data');
+                document.getElementById('channelsData').textContent = JSON.stringify(data, null, 2);
+            });
+
+            socket.on(SOCKET_EVENTS.CHANNELS_UPDATE, (data) => {
+                log('Received channels update');
+                document.getElementById('channelsData').textContent = JSON.stringify(data, null, 2);
+            });
+
+            socket.on(SOCKET_EVENTS.CHANNEL_UPDATE, (data) => {
+                log(`Received channel update for: ${data.channelId}`);
+                // Update the specific channel in the display
+            });
+
+            socket.on(SOCKET_EVENTS.CHANNELS_USER_COUNTS, (data) => {
+                log('Received user counts update');
+                // You can update UI with user counts
+            });
+
+            // Channel room events
+            socket.on(SOCKET_EVENTS.CHANNEL_JOINED, (data) => {
+                log(`Successfully joined channel: ${data.room}`);
+                currentChannel = data.room;
+                roomUsers = data.roomUsers || [];
+                updateRoomInfo();
+            });
+
+            socket.on(SOCKET_EVENTS.CHANNEL_JOIN_ERROR, (error) => {
+                log(`Failed to join channel: ${error.message}`);
+                alert(`Failed to join channel: ${error.message}`);
+            });
+
+            socket.on(SOCKET_EVENTS.USER_JOINED, (data) => {
+                log(`User joined channel ${data.room}: ${data.userId}`);
+                // In a real app, you'd update the user list
+            });
+
+            socket.on(SOCKET_EVENTS.USER_LEFT, (data) => {
+                log(`User left channel ${data.room}: ${data.userId}`);
+                // In a real app, you'd update the user list
+            });
+
+            // Message events
+            socket.on(SOCKET_EVENTS.CHANNEL_MESSAGE, (data) => {
+                const message = `[${data.room}] ${data.userId}: ${data.message} (${data.messageType})`;
+                log(message, 'messagesLog');
+            });
+
+            // LiveKit events
+            socket.on(SOCKET_EVENTS.LIVEKIT_TOKEN, (data) => {
+                log('Received LiveKit token');
+                console.log('LiveKit Token:', data.token);
+                alert('LiveKit token received! Check console for details.');
+            });
+        }
+
+        function disconnect() {
+            if (socket) {
+                socket.disconnect();
+                socket = null;
+            }
+        }
+
+        function joinChannel() {
+            const channelId = document.getElementById('channelInput').value;
+            if (!channelId) {
+                alert('Please enter a channel ID');
+                return;
+            }
+
+            if (!socket || !socket.connected) {
+                alert('Not connected to server');
+                return;
+            }
+
+            socket.emit(SOCKET_EVENTS.JOIN_CHANNEL, { room: channelId });
+        }
+
+        function leaveChannel() {
+            if (!currentChannel) {
+                alert('Not in any channel');
+                return;
+            }
+
+            if (!socket || !socket.connected) {
+                alert('Not connected to server');
+                return;
+            }
+
+            socket.emit(SOCKET_EVENTS.LEAVE_CHANNEL, { room: currentChannel });
+            currentChannel = null;
+            roomUsers = [];
+            updateRoomInfo();
+        }
+
+        function sendMessage() {
+            const message = document.getElementById('messageInput').value;
+            const messageType = document.getElementById('messageType').value;
+
+            if (!message.trim()) {
+                alert('Please enter a message');
+                return;
+            }
+
+            if (!currentChannel) {
+                alert('Please join a channel first');
+                return;
+            }
+
+            if (!socket || !socket.connected) {
+                alert('Not connected to server');
+                return;
+            }
+
+            const payload = {
+                room: currentChannel,
+                message: message,
+                messageType: messageType,
+                userId: 'current-user', // Will be set by server
+                timestamp: new Date().toISOString()
+            };
+
+            socket.emit(SOCKET_EVENTS.CHANNEL_MESSAGE, payload);
+            document.getElementById('messageInput').value = '';
+        }
+
+        function requestLiveKitToken() {
+            if (!currentChannel) {
+                alert('Please join a channel first');
+                return;
+            }
+
+            if (!socket || !socket.connected) {
+                alert('Not connected to server');
+                return;
+            }
+
+            socket.emit(SOCKET_EVENTS.REQUEST_LIVEKIT_TOKEN, { room: currentChannel });
+        }
+
+        // Handle Enter key for sending messages
+        document.getElementById('messageInput').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+            }
+        });
+
+        // Initialize
+        updateStatus(false);
+    </script>
+</body>
+</html>

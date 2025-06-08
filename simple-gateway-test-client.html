@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple Gateway Test Client</title>
+    <script src="https://cdn.socket.io/4.7.4/socket.io.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .section {
+            border: 1px solid #ccc;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 5px;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            margin: 5px;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        input {
+            width: 200px;
+            padding: 5px;
+            margin: 5px;
+            border: 1px solid #ccc;
+            border-radius: 3px;
+        }
+        .log {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 10px;
+            height: 200px;
+            overflow-y: scroll;
+            font-family: monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+        }
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 3px;
+        }
+        .status.connected {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .status.disconnected {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+    </style>
+</head>
+<body>
+    <h1>Simple Gateway Test Client</h1>
+    <p>This is a very simple WebSocket client that sends a "hello" message.</p>
+
+    <div class="section">
+        <h3>Connection</h3>
+        <button onclick="connect()">Connect</button>
+        <button onclick="disconnect()">Disconnect</button>
+        <div id="connectionStatus" class="status disconnected">Disconnected</div>
+    </div>    <div class="section">
+        <h3>Send Messages</h3>
+        <div>
+            <input type="text" id="nameInput" placeholder="Enter your name" value="TestUser" />
+            <button onclick="sendHello()">Send Hello</button>
+        </div>
+        <div>
+            <button onclick="sendPing()">Send Ping</button>
+        </div>
+        <div>
+            <input type="text" id="echoInput" placeholder="Text to echo" value="Hello World" />
+            <button onclick="sendEcho()">Send Echo</button>
+        </div>
+    </div>
+
+    <div class="section">
+        <h3>Activity Log</h3>
+        <button onclick="clearLog()">Clear Log</button>
+        <div id="log" class="log"></div>
+    </div>
+
+    <script>
+        let socket = null;
+
+        function log(message) {
+            const logDiv = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            logDiv.textContent += `[${timestamp}] ${message}\n`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+
+        function updateConnectionStatus(connected) {
+            const statusDiv = document.getElementById('connectionStatus');
+            if (connected) {
+                statusDiv.textContent = 'Connected';
+                statusDiv.className = 'status connected';
+            } else {
+                statusDiv.textContent = 'Disconnected';
+                statusDiv.className = 'status disconnected';
+            }
+        }
+
+        function connect() {
+            if (socket) {
+                socket.disconnect();
+            }
+
+            // Connect to the simple gateway namespace
+            socket = io('http://localhost:3000/simple');
+
+            socket.on('connect', () => {
+                log('✅ Connected to simple gateway');
+                updateConnectionStatus(true);
+            });
+
+            socket.on('disconnect', (reason) => {
+                log(`❌ Disconnected: ${reason}`);
+                updateConnectionStatus(false);
+            });
+
+            socket.on('connect_error', (error) => {
+                log(`❌ Connection error: ${error.message}`);
+                updateConnectionStatus(false);
+            });            // Listen for hello response
+            socket.on('hello_response', (data) => {
+                log(`💬 Hello response: ${data.message}`);
+            });
+
+            // Listen for ping response
+            socket.on('ping', (data) => {
+                log(`🏓 Ping response: ${data.message} at ${data.timestamp}`);
+            });
+
+            // Listen for echo response
+            socket.on('echo_response', (data) => {
+                log(`🔊 Echo response: "${data.original}" -> "${data.echo}"`);
+            });
+
+            // Listen for other users saying hello
+            socket.on('user_said_hello', (data) => {
+                log(`👋 ${data.name} (${data.socketId}) said hello`);
+            });
+        }
+
+        function disconnect() {
+            if (socket) {
+                socket.disconnect();
+                socket = null;
+            }
+        }        function sendHello() {
+            if (!socket || !socket.connected) {
+                alert('Not connected to server');
+                return;
+            }
+
+            const name = document.getElementById('nameInput').value;
+            if (!name) {
+                alert('Please enter your name');
+                return;
+            }
+
+            log(`📤 Sending hello message as: ${name}`);
+            socket.emit('hello', { name: name });
+        }
+
+        function sendPing() {
+            if (!socket || !socket.connected) {
+                alert('Not connected to server');
+                return;
+            }
+
+            log(`📤 Sending ping`);
+            socket.emit('ping', {});
+        }
+
+        function sendEcho() {
+            if (!socket || !socket.connected) {
+                alert('Not connected to server');
+                return;
+            }
+
+            const text = document.getElementById('echoInput').value;
+            if (!text) {
+                alert('Please enter text to echo');
+                return;
+            }
+
+            log(`📤 Sending echo: ${text}`);
+            socket.emit('echo', { text: text });
+        }
+
+        function clearLog() {
+            document.getElementById('log').textContent = '';
+        }        // Handle Enter key in name input
+        document.getElementById('nameInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                sendHello();
+            }
+        });
+
+        // Handle Enter key in echo input
+        document.getElementById('echoInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                sendEcho();
+            }
+        });
+    </script>
+</body>
+</html>

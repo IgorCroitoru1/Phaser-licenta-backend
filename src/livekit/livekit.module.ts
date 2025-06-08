@@ -7,6 +7,7 @@ import { UserModule } from 'src/user/user.module';
 @Module({
   imports: [AuthModule, UserModule],
   providers: [LivekitService],
-  controllers: [LivekitController]
+  controllers: [LivekitController],
+  exports: [LivekitService],
 })
 export class LivekitModule {}

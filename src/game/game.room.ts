@@ -292,15 +292,15 @@ export class GameRoom extends Room<RoomState, RoomMetadata, UserDto> {
   }
 
   async onJoin(client: Client) {
-    const user: ChannelUserDto = {
-      id: client.userData.id,
-      email: client.userData.email,
-      name: client.userData.name,
-      avatar: client.userData.avatar,
-      x: 480,
-      y: 1030,
-      currentZoneId: -1,
-    };
+    // const user: ChannelUserDto = {
+    //   id: client.userData.id,
+    //   email: client.userData.email,
+    //   name: client.userData.name,
+    //   avatar: client.userData.avatar,
+    //   x: 480,
+    //   y: 1030,
+    //   currentZoneId: -1,
+    // };
     const newPlayer = new Player();
     newPlayer.id = client.userData.id;
     newPlayer.currentZoneId = -1;
@@ -318,12 +318,12 @@ export class GameRoom extends Room<RoomState, RoomMetadata, UserDto> {
         user.email,
         user.fullName,
         '',
-        this.state.players.get(user.id).x,
-        this.state.players.get(user.id).y,
+        // this.state.players.get(user.id).x,
+        // this.state.players.get(user.id).y,
       );
     });
-    client.send(GameEvents.INIT_USERS, usersDto);
-    this.broadcast(GameEvents.PLAYER_JOINED, user);
+    // client.send(GameEvents.INIT_USERS, usersDto);
+    // this.broadcast(GameEvents.PLAYER_JOINED, user);
     console.log(`Player ${client.userData.id} joined.`);
   }
 
