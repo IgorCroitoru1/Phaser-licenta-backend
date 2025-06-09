@@ -19,6 +19,7 @@ import {
 import { OnEvent } from '@nestjs/event-emitter';
 import { JwtService } from '@nestjs/jwt';
 import { UserService } from '../user/user.service';
+import { ChannelsService } from '../channel/channel.service';
 import { GameService, ChannelLiveData } from '../game/game.service';
 import {
   CHANNEL_EVENTS,
@@ -62,10 +63,10 @@ export class ChannelsGateway
   server: Server;
 
   private readonly logger = new Logger(ChannelsGateway.name);
-
   constructor(
     private readonly jwtService: JwtService,
     private readonly userService: UserService,
+    private readonly channelsService: ChannelsService,
     // private readonly gameService: GameService,
     private readonly channelRoomService: ChannelRoomService,
     private readonly livekitService: LivekitService,
@@ -160,32 +161,39 @@ export class ChannelsGateway
       success: true,
       users: [],
       channelId: payload.channelId,
-      livekitToken: null,
+      liveKitToken: null,
     }
     try {
-      console.log('handleJoinChannel', payload);
 
       if (!client.user) {
         response.error = 'User not authenticated';
         response.success = false;
 
         return response 
-      }
-      const {  channelId } = payload;
+      }      const {  channelId } = payload;
 
-      // // Validate that channel exists
-      // const channelData = this.getRoomInfo(channelId);
-      // if (!channelData) {
-      //   response.error = `Channel ${channelId} does not exist`;
-      //   response.success = false;
-      //   return response 
-      // }
+      // Validate that channel exists and get channel data
+      let channelData;
+      try {
+        channelData = await this.channelsService.findById(channelId);
+      } catch (error) {
+        response.error = `Channel ${channelId} does not exist`;
+        response.success = false;
+        return response;
+      }
 
       // Check if user is already in this room
       if (this.channelRoomService.isUserInRoom(channelId, client.user.id)) {
         // User is already in this room, just send confirmation
-        // const usersInRoom = this.channelRoomService.getUsersInRoom(channelId);
         response.error = "User already in channel";
+        response.success = false;
+        return response;
+      }
+
+      // Check if channel is full (maxUsers limit)
+      const currentUsersInRoom = this.channelRoomService.getUsersInRoom(channelId);
+      if (currentUsersInRoom.length >= channelData.maxUsers) {
+        response.error = `Canalul e plin (${channelData.maxUsers}/${channelData.maxUsers} utilizatori)`;
         response.success = false;
         return response;
       }
@@ -254,7 +262,7 @@ export class ChannelsGateway
       const usersInRoom = this.channelRoomService.getUsersInRoom(channelId);
       response.users = usersInRoom.map(user => new ChannelUserDto(user.id, user.email, user.name, user.avatar))
       response.success = true;
-      response.livekitToken = livekitToken;
+      response.liveKitToken = livekitToken;
       return response;
     } catch (error) {
       this.logger.error(`Error joining channel:`, error);
