@@ -23,5 +23,10 @@ export const COOKIE_SETTINGS: {
   
   //In seconds
 
+// EMAIL VERIFICATION CONSTANTS
+export const EMAIL_VERIFICATION_CODE_EXPIRY = 15 * 60; // 15 minutes in seconds
+export const EMAIL_VERIFICATION_MAX_ATTEMPTS = 3;
+export const EMAIL_VERIFICATION_RESEND_COOLDOWN = 60; // 1 minute in seconds
+
 //GAME CONSTS
 export const PLAYER_VISION_MASK_SIZE = 250;

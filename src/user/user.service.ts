@@ -57,4 +57,23 @@ export class UserService {
       throw new NotFoundException('Utilizatorul nu a fost găsit');
     }
   }
+
+  async markEmailAsVerified(userId: string): Promise<UserDocument> {
+    const updatedUser = await this.userModel.findByIdAndUpdate(
+      userId,
+      { 
+        $set: { 
+          isEmailVerified: true, 
+          emailVerifiedAt: new Date() 
+        } 
+      },
+      { new: true, runValidators: true }
+    ).exec();
+
+    if (!updatedUser) {
+      throw new NotFoundException('Utilizatorul nu a fost găsit');
+    }
+
+    return updatedUser;
+  }
 }

@@ -11,17 +11,26 @@ import { JwtService } from '@nestjs/jwt';
 import { ChannelsService } from './channel/channel.service';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
-
   app.useGlobalPipes(
     new ValidationPipe({
       transform: true,
       whitelist: true,
       exceptionFactory: (errors) => {
         const formattedErrors = {};
-        console.log(errors);
+        
+        // Log only the validation errors without sensitive data
+        const sanitizedErrors = errors.map(error => ({
+          property: error.property,
+          constraints: error.constraints,
+          value: error.value ? '[REDACTED]' : undefined
+        }));
+        console.log('Validation errors:', sanitizedErrors);
+        
         errors.forEach(error => {
           formattedErrors[error.property] = Object.values(error.constraints);
-        });        // 🔴 Throw an exception so NestJS can return the response properly
+        });
+        
+        // 🔴 Throw an exception so NestJS can return the response properly
         throw new BadRequestException({
           message: 'eroare de validare',
           errors: formattedErrors

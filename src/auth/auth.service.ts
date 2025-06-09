@@ -7,9 +7,11 @@ import { User, UserDocument } from 'src/user/user.model';
 import { UserService } from 'src/user/user.service';
 import { Token, TokenDocument } from './models/token.model';
 import { RegisterUserDto } from './dto/register-user.dto';
+import { RegisterWithCodeDto } from './dto/register-with-code.dto';
 import { UserDto } from 'src/user/dtos/user.dto';
 import { ACCESS_TOKEN_EXPIRATION, REFRESH_TOKEN_EXPIRATION } from '../../constants';
 import { plainToInstance } from 'class-transformer';
+import { EmailVerificationService } from './services/email-verification.service';
 
 @Injectable()
 export class AuthService {
@@ -17,54 +19,115 @@ export class AuthService {
     @InjectModel(Token.name) private tokenModel: Model<TokenDocument>,
     private readonly userService: UserService,
     private jwtService: JwtService,
+    private readonly emailVerificationService: EmailVerificationService,
   ) {}
-
   async validateUser(email: string, password: string) {
     const user = await this.userService.findByEmail(email, true);
     if (!user || !(await bcrypt.compare(password, user.password))) {
       return null;
     }
+    
+    // Check if email is verified
+    if (!user.isEmailVerified) {
+      throw new UnauthorizedException('Te rugăm să îți verifici email-ul înainte de a te conecta');
+    }
+    
     delete user.password
     return user;
-  }
-
+  } 
   async register(registerUserDto: RegisterUserDto) {
     const { fullName, email, password } = registerUserDto;
 
     // 🚀 Check if user already exists
     const existingUser = await this.userService.findByEmail( email );
     if (existingUser) {
-      throw new ConflictException('Email already exists');
+      throw new ConflictException('Un cont cu această adresă de email există deja');
     }
 
     // 🔐 Hash password before saving
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // 🛠️ Create and save the new user
+    // 🛠️ Create and save the new user (unverified)
     const newUser = await this.userService.create({
       fullName,
       email,
       password: hashedPassword,
     });
-    // 🔑 Generate Tokens
-    //const payload = { id: newUser._id, email: newUser.email, fullName: newUser.fullName, roles: newUser.roles };
-    const accessToken = this.generateAccessToken(newUser);
-    const refreshToken = this.generateRefreshToken(newUser);
 
-    // 🔒 Hash refresh token before storing it in the database
-    const hashedRefreshToken = await bcrypt.hash(refreshToken, 10);
+    // 📧 Send verification email instead of returning tokens
+    await this.emailVerificationService.sendVerificationCode(
+      newUser._id.toString(), 
+      email, 
+      fullName
+    );
 
-    // 💾 Store Refresh Token in the database
-    await this.tokenModel.create({
-      user: newUser._id,
-      
-      refreshToken: hashedRefreshToken,
+    return {
+      message: 'Contul a fost creat cu succes! Verifică-ți email-ul pentru a primi codul de verificare.',
+      email: email,
+      requiresVerification: true
+    };
+  }
+
+  /**
+   * Send pre-registration verification code to email
+   */
+  async requestPreRegistrationCode(email: string):Promise<void> {
+    await this.emailVerificationService.sendPreRegistrationCode(email);
+    
+  }
+  /**
+   * Complete registration with verification code
+   */
+  async registerWithCode(registerWithCodeDto: RegisterWithCodeDto) {
+    const { fullName, email, password, verificationCode } = registerWithCodeDto;
+
+    // Verify the pre-registration code
+    const isCodeValid = await this.emailVerificationService.verifyPreRegistrationCode(
+      email, 
+      verificationCode
+    );
+
+    if (!isCodeValid) {
+      throw new UnauthorizedException('Codul de verificare este invalid sau a expirat');
+    }
+
+    // Check if user already exists (double-check)
+    const existingUser = await this.userService.findByEmail(email);
+    if (existingUser) {
+      throw new ConflictException('Un cont cu această adresă de email există deja');
+    }
+
+    // Hash password before saving
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    // Create and save the new user
+    const newUser = await this.userService.create({
+      fullName,
+      email,
+      password: hashedPassword,
     });
+
+    // Mark email as verified since code was validated
+    await this.userService.markEmailAsVerified(newUser.id);
+
+    // Complete the verification process
+    await this.emailVerificationService.completeVerification(email, newUser.id);
+
+    // Get the updated user with verification status
+    const verifiedUser = await this.userService.findById(newUser.id);
+
+    // Generate tokens for immediate login
+    const userDto = plainToInstance(UserDto, verifiedUser, { excludeExtraneousValues: true });
+    const accessToken = this.generateAccessToken(userDto);
+    const refreshToken = this.generateRefreshToken(userDto);
+
+    // Store refresh token
+    await this.tokenModel.create({ user: newUser._id, refreshToken: refreshToken });
 
     return {
       access_token: accessToken,
-      
-      refresh_token: refreshToken, // ⚠️ This should be stored in a secure HttpOnly cookie
+      refresh_token: refreshToken,
+      user: userDto
     };
   }
 //   async validateGoogleUser(googleId: string, email: string, username: string) {

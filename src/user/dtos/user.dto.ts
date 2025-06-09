@@ -9,9 +9,14 @@ export class UserDto {
     @Transform(({ obj }) => obj.fullName)
     @Expose()
     name: string
-    
     @Expose()
     avatar?: string
+    
+    @Expose()
+    isEmailVerified: boolean
+    
+    @Expose()
+    emailVerifiedAt?: Date
     
     @Expose()
     roles: string[]
